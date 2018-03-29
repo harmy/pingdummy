@@ -1,6 +1,10 @@
+provider "aws" {
+  region = "us-west-2"
+}
+
 module "stack" {
   source      = "github.com/segmentio/stack"
-  name        = "pingdummy"
+  name        = "mobifun-pingdummy"
   environment = "prod"
   key_name    = "bastion-ssh"
 }
@@ -14,13 +18,13 @@ module "pingdummy" {
   source             = "github.com/segmentio/stack//web-service"
   image              = "segment/pingdummy"
   port               = 3000
-  ssl_certificate_id = "arn:aws:acm:us-west-2:458175278816:certificate/a5c477da-8ba1-4310-b081-eae6824b038a"
+  ssl_certificate_id = "arn:aws:acm:us-west-2:155561722982:certificate/8d019b30-f141-4904-9a8e-e9913ed9d1e4"
 
   environment      = "${module.stack.environment}"
   cluster          = "${module.stack.cluster}"
   iam_role         = "${module.stack.iam_role}"
   security_groups  = "${module.stack.external_elb}"
-  subnet_ids       = "${module.stack.external_subnets}"
+  subnet_ids       = "${join(",", module.stack.external_subnets)}"
   log_bucket       = "${module.stack.log_bucket_id}"
   internal_zone_id = "${module.stack.zone_id}"
   external_zone_id = "${module.domain.zone_id}"
@@ -39,7 +43,7 @@ module "worker" {
   environment = "${module.stack.environment}"
   name        = "worker"
   image       = "segment/pingdummy-worker"
-  cluster     = "default"
+  cluster     = "${module.stack.cluster}"
   cpu         = 256
   memory      = 256
 }
@@ -65,7 +69,7 @@ module "db" {
   environment        = "${module.stack.environment}"
   vpc_id             = "${module.stack.vpc_id}"
   zone_id            = "${module.stack.zone_id}"
-  security_groups    = "${module.stack.ecs_cluster_security_group_id}"
+  security_groups    = ["${module.stack.ecs_cluster_security_group_id}"]
   subnet_ids         = "${module.stack.internal_subnets}"
   availability_zones = "${module.stack.availability_zones}"
 }
@@ -83,7 +87,7 @@ module "beacon" {
   zone_id         = "${module.stack.zone_id}"
   iam_role        = "${module.stack.iam_role}"
   security_groups = "${module.stack.internal_elb}"
-  subnet_ids      = "${module.stack.internal_subnets}"
+  subnet_ids      = "${join(",", module.stack.internal_subnets)}"
   log_bucket      = "${module.stack.log_bucket_id}"
 }
 
